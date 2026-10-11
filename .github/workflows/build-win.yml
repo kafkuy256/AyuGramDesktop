@@ -44,8 +44,7 @@ jobs:
     steps:
       - name: Prepare directories.
         run: |
-          mkdir %userprofile%\TBuild\Libraries
-          mklink /d %GITHUB_WORKSPACE%\TBuild %userprofile%\TBuild
+          mkdir %GITHUB_WORKSPACE%\TBuild\Libraries
           echo TBUILD=%GITHUB_WORKSPACE%\TBuild>>%GITHUB_ENV%
           echo LibrariesPath=%GITHUB_WORKSPACE%\TBuild\Libraries\win64>>%GITHUB_ENV%
 
@@ -123,6 +122,16 @@ jobs:
         with:
           path: ${{ env.TBUILD }}\ThirdParty
           key: ${{ runner.OS }}-x64-third-party-${{ env.CACHE_KEY }}
+
+      - name: Report disk before building.
+        shell: bash
+        run: |
+          echo "--- free space ---"
+          df -h /c /d 2>/dev/null || true
+          echo "--- TBuild size ---"
+          du -sh "$TBUILD" 2>/dev/null || true
+          echo "--- largest under Libraries ---"
+          du -sh "$LibrariesPath"/* 2>/dev/null | sort -rh | head -8
 
       - name: Free up some disk space.
         shell: bash
