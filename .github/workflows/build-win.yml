@@ -123,6 +123,20 @@ jobs:
           path: ${{ env.TBUILD }}\ThirdParty
           key: ${{ runner.OS }}-x64-third-party-${{ env.CACHE_KEY }}
 
+      - name: Inspect Qt before configuring.
+        shell: bash
+        run: |
+          echo "--- Libraries dir ---"
+          ls -1 "$LibrariesPath" 2>&1 | head -30
+          echo "--- Qt directories ---"
+          ls -1d "$LibrariesPath"/[Qq]t* 2>&1 | head
+          echo "--- Qt5 cmake config ---"
+          ls -1 "$LibrariesPath"/Qt*/lib/cmake 2>&1 | head -10
+          echo "--- Qt5 lib count ---"
+          ls -1 "$LibrariesPath"/Qt*/lib/*.lib 2>/dev/null | wc -l
+          echo "--- any Qt5Config.cmake ---"
+          find "$LibrariesPath" -maxdepth 5 -name 'Qt5Config.cmake' 2>/dev/null | head
+
       - name: Telegram Desktop build.
         run: |
           cd %TBUILD%\%REPO_NAME%\Telegram
