@@ -1,0 +1,130 @@
+name: Build Windows
+
+# Simplified from tdesktop's .github/workflows/win.yml and AyuGram's canary.yml:
+#   - x64 only (no arm64/x64_x86 matrix)
+#   - no depot-* runners (standard windows-latest)
+#   - no canary publishing, no signing, no Bot API, no channels
+#   - builds from secrets instead of the shared TDESKTOP_API_TEST credentials
+#
+# Debug with an empty CMAKE_MSVC_DEBUG_INFORMATION_FORMAT, as in tdesktop's
+# own win.yml: generating .pdb symbols dominates build time and buys nothing
+# here. AGENTS.md also asks for Debug over Release.
+#
+# ThirdParty/Libraries are cached; those prebuilt dependencies, not the
+# Telegram sources, dominate build time.
+
+on:
+  push:
+    branches:
+      - dev
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'changelog.txt'
+      - 'LICENSE'
+      - 'LEGAL'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PREPARE_PATH: "Telegram/build/prepare/prepare.py"
+
+jobs:
+  windows:
+    name: Windows x64
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: cmd
+
+    steps:
+      - name: Prepare directories.
+        run: |
+          mkdir %userprofile%\TBuild\Libraries
+          mklink /d %GITHUB_WORKSPACE%\TBuild %userprofile%\TBuild
+          echo TBUILD=%GITHUB_WORKSPACE%\TBuild>>%GITHUB_ENV%
+          echo LibrariesPath=%GITHUB_WORKSPACE%\TBuild\Libraries\win64>>%GITHUB_ENV%
+
+      - name: Get repository name.
+        shell: bash
+        run: echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
+
+      - name: Clone.
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          path: ${{ env.TBUILD }}\${{ env.REPO_NAME }}
+
+      - name: First set up.
+        shell: bash
+        run: |
+          DOCPATH=$TBUILD/$REPO_NAME/docs/building-win.md
+          SDK="$(grep "SDK version" $DOCPATH | sed -r 's/.*\*\*(.*)\*\* SDK version.*/\1/')"
+          echo "SDK=$SDK" >> $GITHUB_ENV
+          sed -i '/CMAKE_${lang}_FLAGS_DEBUG_INIT/s/${_Zi}//' "$PROGRAMFILES"/CMake/share/cmake*/Modules/Platform/Windows-MSVC.cmake
+          echo "$(sha256sum $TBUILD/$REPO_NAME/$PREPARE_PATH | awk '{ print $1 }')" >> CACHE_KEY.txt
+          echo "$SDK" >> CACHE_KEY.txt
+          echo "CACHE_KEY=$(sha256sum CACHE_KEY.txt | awk '{ print $1 }')" >> $GITHUB_ENV
+
+      - uses: Eden-CI/msvc-dev-cmd@master
+        name: Native Tools Command Prompt.
+        with:
+          arch: x64
+          sdk: ${{ env.SDK }}
+          toolset: 14.44
+
+      - name: NuGet sources.
+        run: |
+          nuget sources Disable -Name "Microsoft Visual Studio Offline Packages"
+          nuget sources Add -Source https://api.nuget.org/v3/index.json & exit 0
+
+      - name: ThirdParty cache.
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.TBUILD }}\ThirdParty
+          key: ${{ runner.OS }}-x64-third-party-${{ env.CACHE_KEY }}
+          restore-keys: ${{ runner.OS }}-x64-third-party-
+
+      - name: Libraries cache.
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.LibrariesPath }}\*
+            !${{ env.LibrariesPath }}\cache_keys
+            !${{ env.LibrariesPath }}\[qQ]t[_-]*
+            ${{ env.LibrariesPath }}\cache_keys\*
+            !${{ env.LibrariesPath }}\cache_keys\[qQ]t[_-]*
+          key: ${{ runner.OS }}-x64-libs-${{ env.CACHE_KEY }}
+          restore-keys: ${{ runner.OS }}-x64-libs-
+
+      - name: Libraries.
+        run: %TBUILD%\%REPO_NAME%\Telegram\build\prepare\win.bat skip-release silent
+
+      - name: Telegram Desktop build.
+        run: |
+          cd %TBUILD%\%REPO_NAME%\Telegram
+          call configure.bat ^
+          -D TDESKTOP_API_ID=${{ secrets.TDESKTOP_API_ID }} ^
+          -D TDESKTOP_API_HASH=${{ secrets.TDESKTOP_API_HASH }} ^
+          -D CMAKE_CONFIGURATION_TYPES=Debug ^
+          -D CMAKE_MSVC_DEBUG_INFORMATION_FORMAT= ^
+          -D DESKTOP_APP_DISABLE_CRASH_REPORTS=ON ^
+          -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON
+          cmake --build ..\out --config Debug --parallel
+
+      - name: Move artifact.
+        run: |
+          set OUT=%TBUILD%\%REPO_NAME%\out\Debug
+          mkdir artifact
+          move %OUT%\Telegram.exe artifact/
+          move %OUT%\Updater.exe artifact/
+
+      - uses: actions/upload-artifact@v4
+        name: Upload artifact.
+        with:
+          name: Telegram-windows-x64
+          path: artifact\
+          retention-days: 7
