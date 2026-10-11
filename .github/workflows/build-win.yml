@@ -30,6 +30,7 @@ permissions:
 
 env:
   PREPARE_PATH: "Telegram/build/prepare/prepare.py"
+  QT: "5.15.19"
 
 jobs:
   windows:
@@ -123,20 +124,6 @@ jobs:
           path: ${{ env.TBUILD }}\ThirdParty
           key: ${{ runner.OS }}-x64-third-party-${{ env.CACHE_KEY }}
 
-      - name: Inspect Qt before configuring.
-        shell: bash
-        run: |
-          echo "--- Libraries dir ---"
-          ls -1 "$LibrariesPath" 2>&1 | head -30
-          echo "--- Qt directories ---"
-          ls -1d "$LibrariesPath"/[Qq]t* 2>&1 | head
-          echo "--- Qt5 cmake config ---"
-          ls -1 "$LibrariesPath"/Qt*/lib/cmake 2>&1 | head -10
-          echo "--- Qt5 lib count ---"
-          ls -1 "$LibrariesPath"/Qt*/lib/*.lib 2>/dev/null | wc -l
-          echo "--- any Qt5Config.cmake ---"
-          find "$LibrariesPath" -maxdepth 5 -name 'Qt5Config.cmake' 2>/dev/null | head
-
       - name: Telegram Desktop build.
         run: |
           cd %TBUILD%\%REPO_NAME%\Telegram
@@ -155,6 +142,21 @@ jobs:
           mkdir artifact
           move %OUT%\Telegram.exe artifact/
           move %OUT%\Updater.exe artifact/
+
+
+      - name: Dump the Qt lookup helper.
+        if: failure()
+        shell: bash
+        run: |
+          cd "$TBUILD/$REPO_NAME/Telegram" || exit 0
+          echo "--- looking for the helper ---"
+          find . -name 'package.cmake' -path '*qt*' 2>/dev/null | head
+          echo "--- cmake/external tree ---"
+          ls -R cmake/external 2>/dev/null | head -40
+          for f in $(find . -name 'package.cmake' -path '*qt*' 2>/dev/null | head -1); do
+            echo "--- $f ---"
+            sed -n '1,80p' "$f"
+          done
 
       - uses: actions/upload-artifact@v4
         name: Upload artifact.
