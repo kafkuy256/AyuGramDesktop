@@ -127,7 +127,7 @@ jobs:
       - name: Telegram Desktop build.
         run: |
           cd %TBUILD%\%REPO_NAME%\Telegram
-          call configure.bat ^
+          call configure.bat x64 ^
           -D TDESKTOP_API_ID=${{ secrets.TDESKTOP_API_ID }} ^
           -D TDESKTOP_API_HASH=${{ secrets.TDESKTOP_API_HASH }} ^
           -D CMAKE_CONFIGURATION_TYPES=Debug ^
@@ -142,31 +142,6 @@ jobs:
           mkdir artifact
           move %OUT%\Telegram.exe artifact/
           move %OUT%\Updater.exe artifact/
-
-
-      - name: Dump the Qt lookup helper.
-        if: failure()
-        shell: bash
-        run: |
-          ROOT="$TBUILD/$REPO_NAME"
-          echo "--- repo root: $ROOT"
-          for base in "$ROOT" "$ROOT/Telegram"; do
-            echo "=== searching under $base"
-            find "$base" -name 'package.cmake' 2>/dev/null | head -5
-            echo "--- cmake/external listing ---"
-            ls -1 "$base/cmake/external" 2>&1 | head -10
-          done
-          echo "--- where did cmake run? out tree ---"
-          find "$ROOT" -maxdepth 3 -name 'CMakeCache.txt' 2>/dev/null | head
-          for cache in $(find "$ROOT" -maxdepth 3 -name 'CMakeCache.txt' 2>/dev/null | head -1); do
-            echo "--- $cache"
-            grep -E '^(CMAKE_HOME_DIRECTORY|CMAKE_PREFIX_PATH|QT)' "$cache" | head
-          done
-          echo "--- helper content ---"
-          for f in $(find "$ROOT" -name 'package.cmake' 2>/dev/null | head -1); do
-            echo "### $f"
-            sed -n '1,90p' "$f"
-          done
 
 
       - uses: actions/upload-artifact@v4
