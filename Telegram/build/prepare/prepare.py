@@ -477,6 +477,10 @@ win:
 
     bash -c "pacman-key --init; pacman-key --populate; pacman -Syu --noconfirm"
     bash -c "pacman -Syu --noconfirm"
+    bash -c "pacman -Sy --noconfirm"
+    bash -c "pacman-conf --repo-list"
+    bash -c "pacman -Sl --quiet 2>&1 | grep -c mingw-w64-x86_64-"
+    bash -c "pacman -Sl --quiet 2>&1 | grep -i diffutils"
     bash -c "pacman -S --noconfirm make mingw-w64-x86_64-diffutils mingw-w64-x86_64-gperf mingw-w64-x86_64-nasm mingw-w64-x86_64-perl mingw-w64-x86_64-pkgconf"
 """, 'ThirdParty')
 
