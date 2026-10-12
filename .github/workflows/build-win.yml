@@ -164,10 +164,13 @@ jobs:
           for /r %%d in ("%OUT%") do call :collect "%%~d"
           echo --- collected ---
           dir /b artifact
-          if not exist artifact\Telegram.exe exit /b 1
-          exit /b 0
+          if exist artifact\AyuGram.exe exit /b 0
+          if exist artifact\Telegram.exe exit /b 0
+          echo No client binary found under %OUT%
+          exit /b 1
 
           :collect
+          if exist "%~1\AyuGram.exe" move /Y "%~1\AyuGram.exe" artifact\ >nul
           if exist "%~1\Telegram.exe" move /Y "%~1\Telegram.exe" artifact\ >nul
           if exist "%~1\Updater.exe" move /Y "%~1\Updater.exe" artifact\ >nul
           exit /b 0
