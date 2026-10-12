@@ -149,14 +149,28 @@ jobs:
           -D DESKTOP_APP_DISABLE_AUTOUPDATE=ON
           cmake --build ..\out --config Debug --parallel
 
+      - name: Show build output before moving.
+        shell: bash
+        run: |
+          echo "--- out tree, exes ---"
+          find "$TBUILD/$REPO_NAME/out" -name '*.exe' 2>/dev/null | head -20
+          echo "--- out size ---"
+          du -sh "$TBUILD/$REPO_NAME/out" 2>/dev/null || true
+
       - name: Move artifact.
         run: |
           set OUT=%TBUILD%\%REPO_NAME%\out
           mkdir artifact
-          for /r %%f in ("%OUT%\Telegram.exe") do move /Y "%%f" artifact\
-          for /r %%f in ("%OUT%\Updater.exe") do move /Y "%%f" artifact\
+          for /r %%d in ("%OUT%") do call :collect "%%~d"
           echo --- collected ---
           dir /b artifact
+          if not exist artifact\Telegram.exe exit /b 1
+          exit /b 0
+
+          :collect
+          if exist "%~1\Telegram.exe" move /Y "%~1\Telegram.exe" artifact\ >nul
+          if exist "%~1\Updater.exe" move /Y "%~1\Updater.exe" artifact\ >nul
+          exit /b 0
 
 
       - uses: actions/upload-artifact@v4
