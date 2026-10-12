@@ -151,10 +151,12 @@ jobs:
 
       - name: Move artifact.
         run: |
-          set OUT=%TBUILD%\%REPO_NAME%\out\Debug
+          set OUT=%TBUILD%\%REPO_NAME%\out
           mkdir artifact
-          move %OUT%\Telegram.exe artifact/
-          move %OUT%\Updater.exe artifact/
+          for /r %%f in ("%OUT%\Telegram.exe") do move /Y "%%f" artifact\
+          for /r %%f in ("%OUT%\Updater.exe") do move /Y "%%f" artifact\
+          echo --- collected ---
+          dir /b artifact
 
 
       - uses: actions/upload-artifact@v4
