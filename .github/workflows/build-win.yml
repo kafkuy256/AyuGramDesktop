@@ -158,22 +158,17 @@ jobs:
           du -sh "$TBUILD/$REPO_NAME/out" 2>/dev/null || true
 
       - name: Move artifact.
+        shell: pwsh
         run: |
-          set OUT=%TBUILD%\%REPO_NAME%\out
-          mkdir artifact
-          for /r %%d in ("%OUT%") do call :collect "%%~d"
-          echo --- collected ---
-          dir /b artifact
-          if exist artifact\AyuGram.exe exit /b 0
-          if exist artifact\Telegram.exe exit /b 0
-          echo No client binary found under %OUT%
-          exit /b 1
-
-          :collect
-          if exist "%~1\AyuGram.exe" move /Y "%~1\AyuGram.exe" artifact\ >nul
-          if exist "%~1\Telegram.exe" move /Y "%~1\Telegram.exe" artifact\ >nul
-          if exist "%~1\Updater.exe" move /Y "%~1\Updater.exe" artifact\ >nul
-          exit /b 0
+          $out = Join-Path $env:TBUILD "$env:REPO_NAME\out"
+          New-Item -ItemType Directory -Force -Path artifact | Out-Null
+          foreach ($name in @('AyuGram.exe', 'Telegram.exe', 'Updater.exe')) {
+            Get-ChildItem -Path $out -Recurse -Filter $name -ErrorAction SilentlyContinue |
+              ForEach-Object { Move-Item -LiteralPath $_.FullName -Destination artifact -Force }
+          }
+          Get-ChildItem artifact | Select-Object Name, Length | Format-Table -AutoSize
+          $ok = (Test-Path artifact\AyuGram.exe) -or (Test-Path artifact\Telegram.exe)
+          if (-not $ok) { Write-Error "No client binary under $out"; exit 1 }
 
 
       - uses: actions/upload-artifact@v4
