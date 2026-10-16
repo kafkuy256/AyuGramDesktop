@@ -19,7 +19,8 @@ bool Start() {
 #if defined(PLUGIN_HOST_WITH_PYTHON)
 	// WHY: 0 leaves signal handlers to Qt; Python installing its own makes
 	// an ordinary quit fault on the Qt thread.
-	if (!Py_InitializeEx(0)) {
+	Py_InitializeEx(0);
+	if (!Py_IsInitialized()) {
 		std::fputs("PLUGIN HOST: Py_InitializeEx failed\n", stderr);
 		return false;
 	}
